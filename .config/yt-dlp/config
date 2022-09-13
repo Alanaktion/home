@@ -1,0 +1,20 @@
+# Use cookies.txt
+# --cookies /home/alan/cookies.txt
+
+# Write temp files to /scratch volume
+# --paths temp:/scratch/tmp/ytdl
+
+# Use authentication, e.g. for sub-only Twitch VODs
+--netrc
+
+# Always download mp4
+-f bestvideo+bestaudio[ext=m4a]/bestvideo+bestaudio/best
+#-f bv+ba[ext=m4a]/b[ext=mp4]/bv+ba/b
+--merge-output-format mp4
+
+# Write thumbnail images
+--write-thumbnail
+# --convert-thumbnails webp>jpg/png
+
+# Limit filenames to what fs can support
+#--trim-filenames 240

@@ -1,0 +1,41 @@
+[user]
+	name = Alan Hardman
+	email = alanaktion@gmail.com
+[pull]
+	rebase = false
+[push]
+	default = simple
+[init]
+	defaultBranch = main
+[core]
+	excludesfile = ~/.gitignore_global
+[filter "lfs"]
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+	required = true
+[alias]
+	ignored = !git ls-files -v | grep '^[[:lower:]]'
+	sync = ~sh -c 'git pull --no-edit && git push'
+	st = status
+	d = diff --color-words
+	dw = diff --word-diff
+	c = commit
+	ch = checkout
+	co = checkout -b
+	l = log
+	ll = log -p
+	lod = log --oneline --decorate
+	lgraph = log --oneline --decorate --graph
+	b = branch
+	gcall = "!find . -maxdepth 1 -type d \\( ! -name . \\) -exec bash -c \"cd '{}' && git gc\" \\;"
+	rmmerged = !git branch --merged | egrep -v '(^\\*|master|main)' | xargs git branch -d
+[color]
+	diff = auto
+	branch = auto
+	interactive = auto
+	status = auto
+[rerere]
+	enabled = true
+[diff]
+	algorithm = histogram
