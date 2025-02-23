@@ -7,6 +7,6 @@ find . -type f -name "*.jpg" -print0 | while read -d $'\0' file; do
   ispng=$(file -hi "$file" | grep image/png)
   if [[ "$ispng" ]]; then
     echo $file
-    mv "$file" "${file/.jpg/.png}"
+    mv -n "$file" "${file/.jpg/.png}"
   fi
 done

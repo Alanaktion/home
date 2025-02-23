@@ -8,6 +8,6 @@ then
   echo "bye files <3 (starting 3 seconds)"
   echo
   sleep 3
-  # Changed to 250KB:
-  fdupes -r -G 250000 -o ctime -i --delete --hardlinks --noprompt .
+  # Changed to 100KB:
+  fdupes -r -G 100000 -o ctime -i --delete --hardlinks --noprompt .
 fi

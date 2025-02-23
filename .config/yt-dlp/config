@@ -1,19 +1,29 @@
-# Use cookies.txt
-# --cookies /home/alan/cookies.txt
+--download-archive ~/.config/yt-dlp/archive.txt
 
-# Write temp files to /scratch volume
-# --paths temp:/scratch/tmp/ytdl
+# Write temp files to home subdir so we lessen random writes to final disk
+--paths temp:~/.cache/yt-dlp/temp
+
+# Use cookies.txt
+# --cookies ~/.config/yt-dlp/cookies.txt
 
 # Use authentication, e.g. for sub-only Twitch VODs
---netrc
+# --netrc
+
+# Format output files with date
+--output "%(upload_date>%Y-%m-%d)s - %(title)s [%(id)s].%(ext)s"
+
+# Portability improvement
+--windows-filenames
+
+# Use best (most efficient) codecs first when available
+--format-sort vcodec,aext
 
 # Always download mp4
--f bestvideo+bestaudio[ext=m4a]/bestvideo+bestaudio/best
-#-f bv+ba[ext=m4a]/b[ext=mp4]/bv+ba/b
---merge-output-format mp4
+# -f bv+ba[ext=m4a]/b[ext=mp4]/bv+ba/b
+# --merge-output-format mp4
 
 # Write thumbnail images
---write-thumbnail
+# --write-thumbnail
 # --convert-thumbnails webp>jpg/png
 
 # Limit filenames to what fs can support

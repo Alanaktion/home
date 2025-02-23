@@ -1,0 +1,5 @@
+complete -c unrpgmv -s 'h' -l 'help'
+complete -c unrpgmv -l 'no-audio'
+complete -c unrpgmv -l 'no-images'
+complete -c unrpgmv -s 'u' -l 'update' -d 'update game asset loading to use decrypted files'
+complete -c unrpgmv -s 'D' -l 'delete' -d 'delete original files after decrypting'
