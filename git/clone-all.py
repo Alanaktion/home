@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 import argparse
 import http.client
 import json
@@ -14,26 +14,34 @@ def build_parser():
     parser = argparse.ArgumentParser(
         description="clone all GitHub repositories for a user/org",
         epilog="additional arguments will be passed to `git clone`")
-    parser.add_argument("user", help="User or organization to clone")
+    parser.add_argument("user", help="user or organization to clone")
+    parser.add_argument("--ssh", action="store_true",
+                        help="clone using SSH instead of HTTPS")
     return parser
 
 
 def get_user_repos(user: str) -> dict:
     conn = http.client.HTTPSConnection("api.github.com")
-    headers = {"Accept": "application/json"}
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "alanaktion",
+    }
     conn.request("GET", f"/users/{user}/repos", headers=headers)
     response = conn.getresponse()
     return json.loads(response.read())
 
 
-def clone_repo(repo_info: dict, owner: str, gitargs: list[str] = []):
+def clone_repo(repo_info: dict, owner: str, ssh: bool = False, gitargs: list[str] = []):
     name = repo_info["name"]
 
     # Skip existing cloned repositories
     if os.path.isdir(name):
         return
 
-    url = f"https://github.com/{owner}/{name}.git"
+    if ssh:
+        url = f"git@github.com:{owner}/{name}.git"
+    else:
+        url = f"https://github.com/{owner}/{name}.git"
     subprocess.run([GIT, "clone", url] + gitargs)
 
 
@@ -42,7 +50,7 @@ def main():
 
     user_repos = get_user_repos(args.user)
     for repo in user_repos:
-        clone_repo(repo, args.user, gitargs)
+        clone_repo(repo, args.user, args.ssh, gitargs)
 
 
 if __name__ == "__main__":
