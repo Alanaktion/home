@@ -6,7 +6,7 @@ from pathlib import Path
 
 class Options(argparse.Namespace):
     prefix: bool = True
-    # singles: bool = False
+    singles: bool = False
     recursive: bool = False
     verbose: bool = False
     dry_run: bool = False
@@ -18,8 +18,8 @@ def build_parser():
     parser.add_argument('-P', '--no-prefix', dest='prefix',
                         action='store_false',
                         help='do not prepend directory name to moved files')
-    # parser.add_argument('-s', '--singles', action='store_true',
-    #                     help='only flatten directories with a single file')
+    parser.add_argument('-s', '--singles', action='store_true',
+                        help='only flatten directories with a single file')
     parser.add_argument('-r', '--recursive', action='store_true',
                         help='rename files recursively')
 
@@ -39,7 +39,10 @@ def main():
     dirs = []
     pattern = '**/' if args.recursive else '*/'
     for d in Path('.').glob(pattern):
-        for f in d.glob('*'):
+        files = list(d.glob('*'))
+        if args.singles and len(files) != 1:
+            continue
+        for f in files:
             if f.is_dir():
                 continue
             src = str(f)

@@ -20,15 +20,60 @@ def build_parser():
     return parser
 
 
-def get_user_repos(user: str) -> dict:
+def get_user_repos(user: str) -> list:
     conn = http.client.HTTPSConnection("api.github.com")
     headers = {
         "Accept": "application/vnd.github+json",
         "User-Agent": "alanaktion",
     }
+
+    repos = []
+
+    # Initial request to fetch the first page of repositories
     conn.request("GET", f"/users/{user}/repos", headers=headers)
     response = conn.getresponse()
-    return json.loads(response.read())
+    data = response.read()
+
+    with open('headers.raw', 'a') as f:
+        print(response.getheaders(), file=f)
+
+    if not data:
+        return []
+
+    repos.extend(json.loads(data))
+
+    # Check for pagination links
+    link_header = response.getheader("Link")
+    while link_header:
+        links = parse_link_header(link_header)
+        if 'next' in links:
+            conn.request("GET", links['next'], headers=headers)
+            response = conn.getresponse()
+            data = response.read()
+            repos.extend(json.loads(data))
+            link_header = response.getheader("Link")
+        else:
+            break
+
+    return repos
+
+
+def parse_link_header(link_header) -> dict[str,str]:
+    # <https://api.github.com/user/236490/repos?page=2>; rel="next", <https://api.github.com/user/236490/repos?page=6>; rel="last"
+    links = {}
+
+    for part in link_header.split(", "):
+        try:
+            # Split each part into URL and rel attributes
+            url_raw, rel_raw = part.split("; rel=\"")
+            url = url_raw.strip("<>")
+            rel = rel_raw.strip("\"")
+
+            if rel not in links:
+                links[rel] = url
+        except:
+            pass
+    return links
 
 
 def clone_repo(repo_info: dict, owner: str, ssh: bool = False, gitargs: list[str] = []):
