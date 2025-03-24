@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import fnmatch
 import http.client
 import json
 import os
@@ -15,6 +16,7 @@ def build_parser():
         description="clone all GitHub repositories for a user/org",
         epilog="additional arguments will be passed to `git clone`")
     parser.add_argument("user", help="user or organization to clone")
+    parser.add_argument("--filter", help="only clone repos matching pattern")
     parser.add_argument("--ssh", action="store_true",
                         help="clone using SSH instead of HTTPS")
     return parser
@@ -95,6 +97,8 @@ def main():
 
     user_repos = get_user_repos(args.user)
     for repo in user_repos:
+        if args.filter and not fnmatch.fnmatch(repo["name"], args.filter):
+            continue
         clone_repo(repo, args.user, args.ssh, gitargs)
 
 
