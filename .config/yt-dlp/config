@@ -1,5 +1,8 @@
 --download-archive ~/.config/yt-dlp/archive.txt
 
+# Adds metadata from source, particularly helpful for audio files
+--embed-metadata
+
 # Write temp files to home subdir so we lessen random writes to final disk
 --paths temp:~/.cache/yt-dlp/temp
 

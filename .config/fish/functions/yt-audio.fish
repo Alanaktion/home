@@ -13,6 +13,6 @@ function yt-audio --wraps=yt-dlp
     set -f directory "%(playlist)s"
   end
 
-  yt-dlp -S 'height:720' --format-sort acodec --format ba --extract-audio \
+  yt-dlp -S 'height:720' --format-sort acodec --format ba --extract-audio --audio-format m4a \
     --output "$directory/$filename" $argv
 end

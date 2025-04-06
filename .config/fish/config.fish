@@ -8,11 +8,13 @@ end
 
 abbr -a yt yt-dlp
 abbr -a gdl gallery-dl
+abbr -a dc docker compose
 abbr -a artisan php artisan
+abbr -a tinker php artisan tinker
 abbr -a ncdu ncdu -x
 abbr -a dh dedup-hardlink
 abbr -a ddD dedup -D
 abbr -a usage du -sh
 abbr -a su sudo su -
 abbr -a iotop sudo iotop
-abbr -a serve python -m http.server
+abbr -a serve python3 -m http.server
