@@ -123,14 +123,21 @@ def main():
         out = array.array('B')
         rom_rev = {v: k for k, v in JA_ROM_MAP.items()}
         for c in input:
-            data = unicodedata.name(c).split()
-            char = data[-1].lower()
-            if data[0] in (HIR, KAT) and char in rom_rev:
-                char = rom_rev[char]
-            if char == 'SPACE':
-                out.frombytes(b' ')
-            else:
-                out.frombytes(char.encode('utf-8'))
+            try:
+                data = unicodedata.name(c).split()
+                char = data[-1].lower()
+                if data[0] in (HIR, KAT) and char in rom_rev:
+                    char = rom_rev[char]
+                if char.upper() == 'SPACE':
+                    out.frombytes(b' ')
+                elif char.upper() == 'COMMA':
+                    out.frombytes(b',')
+                elif char.upper() == 'STOP':
+                    out.frombytes(b'.')
+                else:
+                    out.frombytes(char.encode('utf-8'))
+            except (ValueError):
+                out.frombytes(bytes(c, 'utf-8'))
 
         out_str = out.tobytes().decode('utf-8')
 

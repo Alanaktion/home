@@ -13,7 +13,7 @@ abbr -a artisan php artisan
 abbr -a tinker php artisan tinker
 abbr -a ncdu ncdu -x
 abbr -a dh dedup-hardlink
-abbr -a ddD dedup -D
+abbr -a ddD fdupes -rdN .
 abbr -a usage du -sh
 abbr -a su sudo su -
 abbr -a iotop sudo iotop
