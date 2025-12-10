@@ -36,9 +36,6 @@ def get_user_repos(user: str) -> list:
     response = conn.getresponse()
     data = response.read()
 
-    with open('headers.raw', 'a') as f:
-        print(response.getheaders(), file=f)
-
     if not data:
         return []
 
@@ -60,7 +57,7 @@ def get_user_repos(user: str) -> list:
     return repos
 
 
-def parse_link_header(link_header) -> dict[str,str]:
+def parse_link_header(link_header) -> dict[str, str]:
     # <https://api.github.com/user/236490/repos?page=2>; rel="next", <https://api.github.com/user/236490/repos?page=6>; rel="last"
     links = {}
 
