@@ -1,0 +1,18 @@
+# Source - https://stackoverflow.com/a/77081306
+# Posted by psYchotic
+# Retrieved 2026-01-27, License - CC BY-SA 4.0
+
+function fish_rm_path --argument path
+    set path (path resolve $path)
+    set path_index (contains -i $path $fish_user_paths)
+
+    if test $status -ne 0
+        echo $path not in fish_user_paths
+        return 1
+    end
+
+    echo Removing $path at index $path_index from fish_user_paths
+
+    set -e fish_user_paths[$path_index]
+end
+
