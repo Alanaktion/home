@@ -6,8 +6,8 @@ set -euo pipefail
 # Parse optional --max-width argument
 max_width=""
 if [[ "${1:-}" == "--max-width" ]]; then
-    if (( $# < 2 )); then
-        echo "Error: --max-width requires a value" >&2
+    if (( $# < 3 )); then
+        echo "Error: --max-width requires a value and an input file" >&2
         exit 1
     fi
     max_width="$2"
