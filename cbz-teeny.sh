@@ -3,8 +3,19 @@
 
 set -euo pipefail
 
+# Parse optional --max-width argument
+max_width=""
+if [[ "${1:-}" == "--max-width" ]]; then
+    if (( $# < 2 )); then
+        echo "Error: --max-width requires a value" >&2
+        exit 1
+    fi
+    max_width="$2"
+    shift 2
+fi
+
 if (( $# < 1 )); then
-    echo "Usage: $0 INPUT.{CBZ|CBR} [OUTPUT.CBZ]" >&2
+    echo "Usage: $0 [--max-width WIDTH] INPUT.{CBZ|CBR} [OUTPUT.CBZ]" >&2
     exit 1
 fi
 
@@ -36,7 +47,11 @@ case "$fmt" in
 esac
 
 # Run teeny (optimized WebP)
-teeny -q -f webp -r "$tmp"
+if [[ -n "$max_width" ]]; then
+    teeny -q -f webp --max-width "$max_width" -r "$tmp"
+else
+    teeny -q -f webp -r "$tmp"
+fi
 
 # Re‑package into the original working directory
 # Always pack into zip archive, not rar
