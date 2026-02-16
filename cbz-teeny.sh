@@ -47,11 +47,11 @@ case "$fmt" in
 esac
 
 # Run teeny (optimized WebP)
+teeny_args=(-q -f webp)
 if [[ -n "$max_width" ]]; then
-    teeny -q -f webp --max-width "$max_width" -r "$tmp"
-else
-    teeny -q -f webp -r "$tmp"
+    teeny_args+=(--max-width "$max_width")
 fi
+teeny "${teeny_args[@]}" -r "$tmp"
 
 # Re‑package into the original working directory
 # Always pack into zip archive, not rar
