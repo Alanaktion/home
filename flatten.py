@@ -23,6 +23,9 @@ def build_parser():
     parser.add_argument('-r', '--recursive', action='store_true',
                         help='rename files recursively')
 
+    parser.add_argument('-g', '--glue', default='-',
+                        help='string to use when joining paths (default: "-")')
+
     group = parser.add_mutually_exclusive_group()
     group.add_argument('-v', '--verbose', action='store_true',
                        help='list changes as they are made')
@@ -31,6 +34,9 @@ def build_parser():
     group.add_argument('-i', '--interactive', action='store_true',
                        help='prompt for each change before applying')
 
+    parser.add_argument('directory', nargs='?', default='.',
+                        help='directory to flatten (default: current dir)')
+
     return parser
 
 
@@ -38,6 +44,7 @@ def main():
     args = build_parser().parse_args(namespace=Options)
     dirs = []
     pattern = '**/' if args.recursive else '*/'
+    os.chdir(args.directory)
     for d in Path('.').glob(pattern):
         files = list(d.glob('*'))
         if args.singles and len(files) != 1:
@@ -46,7 +53,10 @@ def main():
             if f.is_dir():
                 continue
             src = str(f)
-            dest = str(f).replace('/', '-')
+            if args.prefix:
+                dest = str(f).replace('/', args.glue)
+            else:
+                dest = f.name
             if src == dest:
                 continue
             if args.dry_run or args.interactive or args.verbose:
