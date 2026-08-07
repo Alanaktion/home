@@ -33,7 +33,7 @@ def clean_segment(segment):
     return segment
 
 
-def url_to_path(url):
+def url_to_path(url, strip_query=False):
     """Map a URL to a local ./{hostname}/{file_path} relative path"""
     parts = urlsplit(url)
     if parts.scheme not in ('http', 'https'):
@@ -52,7 +52,7 @@ def url_to_path(url):
     if not segments or path.endswith('/'):
         segments.append('index.html')
 
-    if parts.query:
+    if parts.query and not strip_query:
         segments[-1] = clean_segment(segments[-1] + '?' + unquote(parts.query))
 
     return os.path.join(clean_segment(host), *segments)
@@ -240,6 +240,9 @@ parser = argparse.ArgumentParser(
 parser.add_argument('-o', '--output', help='Output directory')
 parser.add_argument('-d', '--delete', action='store_true',
     help='Delete original file after extraction')
+parser.add_argument('-q', '--strip-query', action='store_true',
+    help='Omit query strings from output paths, so asdf.jpg?v=1 writes to '
+         'asdf.jpg (URLs differing only by query overwrite each other)')
 parser.add_argument('file', help='Path to .warc/.wacz file to convert')
 args = parser.parse_args()
 
@@ -279,7 +282,7 @@ with opener(src, 'rb') as stream:
             continue
 
         url = headers.get('warc-target-uri', '').strip('<>')
-        path = url_to_path(url) if url else None
+        path = url_to_path(url, args.strip_query) if url else None
         if path is None:
             skipped += 1
             continue
