@@ -54,7 +54,8 @@ def main():
                         elif args.think == 'quote':
                             prefix = '> '
                         elif args.think == 'details':
-                            out.write(f'<details>\n<summary>{s['style'].get('title', 'Thinking')}</summary>')
+                            out.write(
+                                f'<details>\n<summary>{s['style'].get('title', 'Thinking')}</summary>')
                     for c in s.get('content', []):
                         if c.get('isStructural'):
                             continue
