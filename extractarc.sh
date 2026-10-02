@@ -51,14 +51,14 @@ extract_archive() {
     *.tar)
       tar -xf "$archive" -C "$target_dir"
       ;;
-    *.zip)
+    *.zip|*.cbz)
       if have_cmd unzip; then
         unzip -oq "$archive" -d "$target_dir"
       else
         7z x -y -o"$target_dir" "$archive"
       fi
       ;;
-    *.rar)
+    *.rar|*.cbr)
       if have_cmd unrar; then
         unrar x -o+ -idq "$archive" "$target_dir/"
       else
@@ -98,7 +98,9 @@ make_target_dir() {
     *.txz)    base_no_ext="${base_no_ext%.[tT][xX][zZ]}" ;;
     *.tar)    base_no_ext="${base_no_ext%.[tT][aA][rR]}" ;;
     *.zip)    base_no_ext="${base_no_ext%.[zZ][iI][pP]}" ;;
+    *.cbz)    base_no_ext="${base_no_ext%.[cC][bB][zZ]}" ;;
     *.rar)    base_no_ext="${base_no_ext%.[rR][aA][rR]}" ;;
+    *.cbr)    base_no_ext="${base_no_ext%.[cC][bB][rR]}" ;;
     *.7z)     base_no_ext="${base_no_ext%.[7][zZ]}" ;;
   esac
   shopt -u nocasematch
@@ -162,7 +164,7 @@ while IFS= read -r -d '' archive; do
     echo "  failed: $archive" >&2
     rmdir "$target_dir" >/dev/null 2>&1 || true
   fi
-done < <(find . -type f \( -iname '*.zip' -o -iname '*.rar' -o -iname '*.7z' -o -iname '*.tar' -o -iname '*.tar.gz' -o -iname '*.tgz' -o -iname '*.tar.bz2' -o -iname '*.tbz2' -o -iname '*.tar.xz' -o -iname '*.txz' \) -print0)
+done < <(find . -type f \( -iname '*.zip' -o -iname '*.cbz' -o -iname '*.rar' -o -iname '*.7z' -o -iname '*.tar' -o -iname '*.tar.gz' -o -iname '*.tgz' -o -iname '*.tar.bz2' -o -iname '*.tbz2' -o -iname '*.tar.xz' -o -iname '*.txz' \) -print0)
 
 if [ "$found" -eq 0 ]; then
   echo "No archives found."
