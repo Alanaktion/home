@@ -2,10 +2,7 @@
 #
 # dedupe-repos.sh — consolidate duplicate git clones into git worktrees.
 #
-# Scans a directory tree for git clones. Clones whose `origin` remote points at
-# the same place are treated as duplicates of one another. For each such group,
-# one clone is kept as the "primary"; every other clone is replaced in place by
-# a worktree of the primary, checked out at the same commit.
+# Compatible with bash 3.2 (the version that ships with macOS).
 #
 set -euo pipefail
 
@@ -21,27 +18,11 @@ Usage: dedupe-repos.sh [-d DIR] [-n] [-y] [-h]
   -n       dry run: print the plan, change nothing
   -y       skip the confirmation prompt
   -h       show this help
-
-How it works:
-  1. Every clone under DIR (a directory containing a .git dir) is collected
-     and grouped by its normalized origin URL.
-  2. Groups with more than one clone are consolidated. The first clone in the
-     group (sorted by path) becomes the primary.
-  3. Each duplicate's local branches are imported into the primary. A branch
-     name that already exists at a different commit gets suffixed with the
-     duplicate's directory name.
-  4. The duplicate is moved aside, a worktree is created at its original path,
-     and the moved copy is deleted once the worktree is in place. If anything
-     fails, the original is restored.
-
-Clones with uncommitted changes are skipped.
 EOF
 }
 
 say()  { printf '%s\n' "$*"; }
 warn() { printf 'warning: %s\n' "$*" >&2; }
-
-# ---------------------------------------------------------------- arguments
 
 while getopts ":d:nyh" opt; do
   case "$opt" in
@@ -58,76 +39,99 @@ shift $((OPTIND - 1))
 [ -d "$ROOT" ] || { printf 'error: not a directory: %s\n' "$ROOT" >&2; exit 1; }
 ROOT=$(cd -- "$ROOT" && pwd)
 
-# ------------------------------------------------------------- url handling
+# ---- url normalization -----------------------------------------------------
 
-# Normalize a remote URL so that ssh/https/scp forms of the same repo collapse
-# into one key:  git@github.com:me/x.git == https://github.com/me/x
 normalize_url() {
   local u=$1
   u=${u%.git}
   u=${u%/}
-  # scp-like syntax: [user@]host:path
   if [[ $u != *"://"* && $u == *:* ]]; then
     u=${u#*@}
-    u=${u/:/\/}
+    u=${u%%:*}/${u#*:}
   fi
-  u=${u#*://}      # drop scheme
-  u=${u##*@}       # drop userinfo
+  u=${u#*://}
+  u=${u##*@}
   u=${u%.git}
   u=${u%/}
-  printf '%s\n' "${u,,}"
+  # bash 3.2 has no ${var,,}
+  printf '%s\n' "$u" | tr '[:upper:]' '[:lower:]'
 }
 
-# ------------------------------------------------------------ collect clones
+# ---- temp workspace --------------------------------------------------------
 
-declare -A by_remote=()
+tmpdir=$(mktemp -d "${TMPDIR:-/tmp}/dedupe-repos.XXXXXX")
+trap 'rm -rf "$tmpdir"' EXIT
 
+# ---- collect clones --------------------------------------------------------
+
+find "$ROOT" -type d -name .git -prune -print 2>/dev/null | sort > "$tmpdir/gitdirs"
+
+: > "$tmpdir/repos.tsv"
 while IFS= read -r gitdir; do
   repo=${gitdir%/.git}
   url=$(git -C "$repo" remote get-url origin 2>/dev/null) || continue
   [ -n "$url" ] || continue
   key=$(normalize_url "$url")
-  by_remote[$key]="${by_remote[$key]:-}$repo"$'\n'
-done < <(find "$ROOT" -type d -name .git -prune -print 2>/dev/null | sort)
+  printf '%s\t%s\n' "$key" "$repo" >> "$tmpdir/repos.tsv"
+done < "$tmpdir/gitdirs"
 
-# ------------------------------------------------------------------ build plan
+sort -u "$tmpdir/repos.tsv" > "$tmpdir/repos.sorted"
 
-mapfile -t remote_keys < <(printf '%s\n' "${!by_remote[@]}" | sort)
+# ---- build plan ------------------------------------------------------------
+# Group identical remotes by walking the sorted TSV. No associative array
+# needed — we just remember the previous key and accumulate a group.
 
-declare -a plan_primary=() plan_dup=()
+: > "$tmpdir/plan.tsv"
+plan_count=0
+prev_key=""
+group=()
 
-for key in "${remote_keys[@]}"; do
-  mapfile -t repos < <(printf '%s\n' "${by_remote[$key]}" | sed '/^$/d' | sort -u)
-  ((${#repos[@]} > 1)) || continue
-  primary=${repos[0]}
-  for dup in "${repos[@]:1}"; do
-    plan_primary+=("$primary")
-    plan_dup+=("$dup")
+while IFS=$'\t' read -r key repo; do
+  if [ -n "$prev_key" ] && [ "$key" != "$prev_key" ]; then
+    if [ ${#group[@]} -gt 1 ]; then
+      primary=${group[0]}
+      i=1
+      while [ $i -lt ${#group[@]} ]; do
+        printf '%s\t%s\n' "$primary" "${group[$i]}" >> "$tmpdir/plan.tsv"
+        plan_count=$((plan_count + 1))
+        i=$((i + 1))
+      done
+    fi
+    group=()
+  fi
+  group+=("$repo")
+  prev_key=$key
+done < "$tmpdir/repos.sorted"
+
+if [ -n "$prev_key" ] && [ ${#group[@]} -gt 1 ]; then
+  primary=${group[0]}
+  i=1
+  while [ $i -lt ${#group[@]} ]; do
+    printf '%s\t%s\n' "$primary" "${group[$i]}" >> "$tmpdir/plan.tsv"
+    plan_count=$((plan_count + 1))
+    i=$((i + 1))
   done
-done
+fi
 
-total=${#plan_dup[@]}
-if ((total == 0)); then
+if [ "$plan_count" -eq 0 ]; then
   say "No duplicate clones found under $ROOT."
   exit 0
 fi
 
-say "Found $total duplicate clone(s) under $ROOT:"
-i=0
-while ((i < total)); do
+say "Found $plan_count duplicate clone(s) under $ROOT:"
+while IFS=$'\t' read -r p d; do
   say ""
-  say "  keep:  ${plan_primary[i]}"
-  say "  fold:  ${plan_dup[i]}   ->  worktree"
-  i=$((i + 1))
-done
+  say "  keep:  $p"
+  say "  fold:  $d   ->  worktree"
+done < "$tmpdir/plan.tsv"
 say ""
 
-if ((DRY_RUN)); then
+if [ "$DRY_RUN" -eq 1 ]; then
   say "Dry run: nothing changed."
   exit 0
 fi
 
-if ((!ASSUME_YES)); then
+if [ "$ASSUME_YES" -eq 0 ]; then
   printf 'Proceed? [y/N] '
   read -r reply || reply=""
   case "$reply" in
@@ -136,7 +140,7 @@ if ((!ASSUME_YES)); then
   esac
 fi
 
-# ------------------------------------------------------------------- folding
+# ---- fold duplicates -------------------------------------------------------
 
 fold_duplicate() {
   local primary=$1 dup=$2
@@ -152,7 +156,6 @@ fold_duplicate() {
     return 1
   fi
 
-  # Import every object and branch out of the duplicate into the primary.
   if ! git -C "$primary" fetch --quiet --no-tags "$dup" \
         '+refs/heads/*:refs/dedupe-tmp/*' \
         '+HEAD:refs/dedupe-tmp/HEAD' 2>/dev/null; then
@@ -160,67 +163,84 @@ fold_duplicate() {
     return 1
   fi
 
-  # Recreate the duplicate's branches inside the primary, renaming on conflict.
-  local -A name_map=()
+  # Recreate each branch in the primary, renaming on conflict.
+  # Parallel arrays stand in for an associative map (bash 3.2 has no -A).
+  local map_src map_dst
+  map_src=()
+  map_dst=()
+
   local ref b sha target n
   while IFS= read -r ref; do
-    if [ -n "$ref" ]; then
-      b=${ref#refs/dedupe-tmp/}
-      if [ "$b" != "HEAD" ]; then
-        sha=$(git -C "$primary" rev-parse --verify "refs/dedupe-tmp/$b")
-        target=$b
-        if git -C "$primary" show-ref --verify --quiet "refs/heads/$target"; then
-          if [ "$(git -C "$primary" rev-parse "refs/heads/$target")" = "$sha" ]; then
-            name_map[$b]=$target
-            continue
-          fi
-          target="$b-$(basename -- "$dup")"
-          n=2
-          while git -C "$primary" show-ref --verify --quiet "refs/heads/$target"; do
-            target="$b-$(basename -- "$dup")-$n"
-            n=$((n + 1))
-          done
-        fi
-        git -C "$primary" branch "$target" "$sha"
-        name_map[$b]=$target
-      fi
+    [ -n "$ref" ] || continue
+    b=${ref#refs/dedupe-tmp/}
+    if [ "$b" = "HEAD" ]; then
+      continue
     fi
+    sha=$(git -C "$primary" rev-parse --verify "refs/dedupe-tmp/$b")
+    target=$b
+    if git -C "$primary" show-ref --verify --quiet "refs/heads/$target"; then
+      if [ "$(git -C "$primary" rev-parse "refs/heads/$target")" = "$sha" ]; then
+        map_src+=("$b")
+        map_dst+=("$target")
+        continue
+      fi
+      target="$b-$(basename -- "$dup")"
+      n=2
+      while git -C "$primary" show-ref --verify --quiet "refs/heads/$target"; do
+        target="$b-$(basename -- "$dup")-$n"
+        n=$((n + 1))
+      done
+    fi
+    git -C "$primary" branch "$target" "$sha"
+    map_src+=("$b")
+    map_dst+=("$target")
   done < <(git -C "$primary" for-each-ref --format='%(refname)' refs/dedupe-tmp/)
 
-  # Which branch should the new worktree land on?
-  local branch target primary_branch use_detach=0
+  # Pick the branch (or detached HEAD) the worktree should land on.
+  local branch target primary_branch use_detach=0 i
   branch=$(git -C "$dup" symbolic-ref --quiet --short HEAD || true)
 
-  if [ -n "$branch" ] && [ -n "${name_map[$branch]:-}" ]; then
-    target=${name_map[$branch]}
+  target=""
+  if [ -n "$branch" ]; then
+    i=0
+    while [ $i -lt ${#map_src[@]} ]; do
+      if [ "${map_src[$i]}" = "$branch" ]; then
+        target=${map_dst[$i]}
+        break
+      fi
+      i=$((i + 1))
+    done
+  fi
+
+  if [ -n "$target" ]; then
     primary_branch=$(git -C "$primary" symbolic-ref --quiet --short HEAD || true)
-    # A branch can only be checked out in one worktree at a time.
-    [ "$target" = "$primary_branch" ] && use_detach=1
+    if [ "$target" = "$primary_branch" ]; then
+      use_detach=1
+    fi
   else
     use_detach=1
   fi
 
-  # Drop the temporary import refs; the branches we just made keep the objects.
+  # Drop temporary refs (branches we created above keep the objects alive).
   while IFS= read -r ref; do
-    if [ -n "$ref" ]; then
-      git -C "$primary" update-ref -d "$ref"
-    fi
+    [ -n "$ref" ] || continue
+    git -C "$primary" update-ref -d "$ref"
   done < <(git -C "$primary" for-each-ref --format='%(refname)' refs/dedupe-tmp/)
 
-  # Swap the duplicate for a worktree at the same path.
+  # Swap the duplicate for a worktree.
   local backup="${dup}.dedupe-backup.$$"
   mv -- "$dup" "$backup"
 
   local ok=1
-  if [ "$use_detach" = 1 ]; then
+  if [ "$use_detach" -eq 1 ]; then
     git -C "$primary" worktree add --detach "$dup" "$head" || ok=0
   else
     git -C "$primary" worktree add "$dup" "$target" || ok=0
   fi
 
-  if [ "$ok" = 1 ]; then
+  if [ "$ok" -eq 1 ]; then
     rm -rf -- "$backup"
-    if [ "$use_detach" = 1 ]; then
+    if [ "$use_detach" -eq 1 ]; then
       say "  folded $dup  (detached at ${head:0:8})"
     else
       say "  folded $dup  (branch $target)"
@@ -233,18 +253,16 @@ fold_duplicate() {
   fi
 }
 
-# --------------------------------------------------------------------- run
+# ---- run -------------------------------------------------------------------
 
 failures=0
-i=0
-while ((i < total)); do
-  ( fold_duplicate "${plan_primary[i]}" "${plan_dup[i]}" ) || failures=$((failures + 1))
-  i=$((i + 1))
-done
+while IFS=$'\t' read -r p d; do
+  ( fold_duplicate "$p" "$d" ) || failures=$((failures + 1))
+done < "$tmpdir/plan.tsv"
 
 say ""
-if ((failures == 0)); then
-  say "Done. Folded $total clone(s) into worktrees."
+if [ "$failures" -eq 0 ]; then
+  say "Done. Folded $plan_count clone(s) into worktrees."
 else
   say "Done with $failures failure(s)."
 fi
